@@ -114,7 +114,7 @@ mod tests {
     use std::task::Context;
     use std::task::Poll;
 
-    const MAX_BUF: usize = 16 * 1024;
+    const MAX_BUF: usize = 128 * 1024 * 1024;
 
     struct TextMockWriter;
 
