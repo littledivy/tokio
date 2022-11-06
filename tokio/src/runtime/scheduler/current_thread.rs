@@ -518,7 +518,9 @@ impl CoreGuard<'_> {
     #[track_caller]
     fn block_on<F: Future>(self, future: F) -> F::Output {
         let ret = self.enter(|mut core, context| {
-            let waker = Handle::waker_ref(&context.handle);
+            // let waker = Handle::waker_ref(&context.handle);
+            // noop waker
+            let waker = futures::task::noop_waker();
             let mut cx = std::task::Context::from_waker(&waker);
 
             pin!(future);
@@ -526,17 +528,22 @@ impl CoreGuard<'_> {
             'outer: loop {
                 let handle = &context.handle;
 
-                if handle.reset_woken() {
-                    let (c, res) = context.enter(core, || {
-                        crate::runtime::coop::budget(|| future.as_mut().poll(&mut cx))
-                    });
-
-                    core = c;
-
-                    if let Ready(v) = res {
-                        return (core, Some(v));
-                    }
+                let res = future.as_mut().poll(&mut cx);
+                if let Ready(v) = res {
+                    return (core, Some(v));
                 }
+
+                // if handle.reset_woken() {
+                    // let (c, res) = context.enter(core, || {
+                    //     crate::runtime::coop::budget(|| future.as_mut().poll(&mut cx))
+                    // });
+
+                    // core = c;
+
+                    // if let Ready(v) = res {
+                    //     return (core, Some(v));
+                    // }
+                // }
 
                 for _ in 0..handle.shared.config.event_interval {
                     // Make sure we didn't hit an unhandled_panic
@@ -558,7 +565,6 @@ impl CoreGuard<'_> {
                         Some(entry) => entry,
                         None => {
                             core = context.park(core, handle);
-
                             // Try polling the `block_on` future next
                             continue 'outer;
                         }
@@ -566,11 +572,11 @@ impl CoreGuard<'_> {
 
                     let task = context.handle.shared.owned.assert_owner(task);
 
-                    let (c, _) = context.run_task(core, || {
+                    // let (c, _) = context.run_task(core, || {
                         task.run();
-                    });
+                    // });
 
-                    core = c;
+                    // core = c;
                 }
 
                 // Yield to the driver, this drives the timer and pulls any

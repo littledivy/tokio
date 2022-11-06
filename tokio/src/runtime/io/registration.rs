@@ -185,9 +185,9 @@ impl Registration {
         let ev = self.shared.ready_event(interest);
 
         // Don't attempt the operation if the resource is not ready.
-        if ev.ready.is_empty() {
-            return Err(io::ErrorKind::WouldBlock.into());
-        }
+        // if ev.ready.is_empty() {
+        //     return Err(io::ErrorKind::WouldBlock.into());
+        // }
 
         match f() {
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {

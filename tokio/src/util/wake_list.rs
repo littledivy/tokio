@@ -6,7 +6,7 @@ const NUM_WAKERS: usize = 32;
 
 pub(crate) struct WakeList {
     inner: [MaybeUninit<Waker>; NUM_WAKERS],
-    curr: usize,
+    pub curr: usize,
 }
 
 impl WakeList {

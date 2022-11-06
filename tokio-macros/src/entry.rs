@@ -387,7 +387,7 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
         #[allow(clippy::expect_used, clippy::diverging_sub_expression)]
         {
             return #rt
-                .enable_all()
+                .enable_io()
                 .build()
                 .expect("Failed building the Runtime")
                 .block_on(body);
