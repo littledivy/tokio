@@ -9,6 +9,7 @@ use crate::util::WakeList;
 
 use std::sync::atomic::Ordering::{AcqRel, Acquire, Release};
 use std::task::{Context, Poll, Waker};
+use std::cell::RefCell;
 
 use super::Direction;
 
@@ -28,7 +29,8 @@ pub(crate) struct ScheduledIo {
     /// Packs the resource's readiness with the resource's generation.
     readiness: AtomicUsize,
 
-    waiters: Mutex<Waiters>,
+    // waiters: Mutex<Waiters>,
+    waiters: RefCell<Waiters>,
 }
 
 cfg_io_readiness! {
@@ -127,7 +129,7 @@ impl Default for ScheduledIo {
     fn default() -> ScheduledIo {
         ScheduledIo {
             readiness: AtomicUsize::new(0),
-            waiters: Mutex::new(Default::default()),
+            waiters: RefCell::new(Default::default()),
         }
     }
 }
@@ -225,14 +227,14 @@ impl ScheduledIo {
     fn wake0(&self, ready: Ready, shutdown: bool) {
         let mut wakers = WakeList::new();
 
-        let mut waiters = self.waiters.lock();
+        let mut waiters = self.waiters.borrow_mut();
 
         waiters.is_shutdown |= shutdown;
 
         // check for AsyncRead slot
         if ready.is_readable() {
             if let Some(waker) = waiters.reader.take() {
-                wakers.push(waker);
+                wakers.push(waker); 
             }
         }
 
@@ -268,7 +270,7 @@ impl ScheduledIo {
             wakers.wake_all();
 
             // Acquire the lock again.
-            waiters = self.waiters.lock();
+            waiters = self.waiters.borrow_mut();
         }
 
         // Release the lock before notifying
@@ -302,7 +304,7 @@ impl ScheduledIo {
 
         if ready.is_empty() {
             // Update the task info
-            let mut waiters = self.waiters.lock();
+            let mut waiters = self.waiters.borrow_mut();
             let slot = match direction {
                 Direction::Read => &mut waiters.reader,
                 Direction::Write => &mut waiters.writer,
@@ -356,7 +358,7 @@ impl ScheduledIo {
     }
 
     pub(crate) fn clear_wakers(&self) {
-        let mut waiters = self.waiters.lock();
+        let mut waiters = self.waiters.borrow_mut();
         waiters.reader.take();
         waiters.writer.take();
     }
@@ -446,7 +448,7 @@ cfg_io_readiness! {
                         }
 
                         // Wasn't ready, take the lock (and check again while locked).
-                        let mut waiters = scheduled_io.waiters.lock();
+                        let mut waiters = scheduled_io.waiters.borrow_mut();
 
                         let curr = scheduled_io.readiness.load(SeqCst);
                         let mut ready = Ready::from_usize(READINESS.unpack(curr));
@@ -485,7 +487,7 @@ cfg_io_readiness! {
                         // `notify.waiters`). In order to access the waker fields,
                         // we must hold the lock.
 
-                        let waiters = scheduled_io.waiters.lock();
+                        let waiters = scheduled_io.waiters.borrow_mut();
 
                         // Safety: called while locked
                         let w = unsafe { &mut *waiter.get() };
@@ -527,7 +529,7 @@ cfg_io_readiness! {
 
     impl Drop for Readiness<'_> {
         fn drop(&mut self) {
-            let mut waiters = self.scheduled_io.waiters.lock();
+            let mut waiters = self.scheduled_io.waiters.borrow_mut();
 
             // Safety: `waiter` is only ever stored in `waiters`
             unsafe {

@@ -145,14 +145,14 @@ impl Registration {
         direction: Direction,
     ) -> Poll<io::Result<ReadyEvent>> {
         // Keep track of task budget
-        let coop = ready!(crate::runtime::coop::poll_proceed(cx));
+        // let coop = ready!(crate::runtime::coop::poll_proceed(cx));
         let ev = ready!(self.shared.poll_readiness(cx, direction));
 
-        if self.handle().is_shutdown() {
-            return Poll::Ready(Err(gone()));
-        }
+        // if self.handle().is_shutdown() {
+        //     return Poll::Ready(Err(gone()));
+        // }
 
-        coop.made_progress();
+        // coop.made_progress();
         Poll::Ready(Ok(ev))
     }
 
